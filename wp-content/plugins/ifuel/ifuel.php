@@ -21,6 +21,7 @@ if (!defined('WPINC')) {
 
 function activate_plugin_name()
 {
+    init_post_type();
     InvestorsSeeder::seed();
 }
 
@@ -28,10 +29,13 @@ function deactivate_plugin_name()
 {
 }
 
-add_action('init', function () {
+function init_post_type()
+{
     InvestorPostType::register();
     InvestorPostType::hooks();
-});
+}
+
+add_action('init', 'init_post_type');
 
 register_activation_hook(__FILE__, 'activate_plugin_name');
 register_deactivation_hook(__FILE__, 'deactivate_plugin_name');

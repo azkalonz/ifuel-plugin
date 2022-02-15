@@ -21,7 +21,7 @@ class InvestorsSeeder
 
     public static function create_user($data)
     {
-        if (empty($data[6])) return;
+        if (empty($data[6]) || empty($data[4])) return;
         $user = array(
             'user_login' => $data[6],
             'user_email' => $data[6],
@@ -34,7 +34,13 @@ class InvestorsSeeder
                 'post_status' => 'publish',
                 'post_type' => 'investor',
             ];
+            $term_slug = sanitize_title($data[4]);
+            $taxonomy = 'investor_location';
+            if (!get_term_by('slug', $term_slug, $taxonomy))
+                wp_insert_term($data[4], $taxonomy, $term_slug);
             $post = wp_insert_post($postarr);
+            wp_set_object_terms($post, $term_slug, $taxonomy);
+
             foreach (self::$requiredHeaders as $key => $value) {
                 add_post_meta($post, $value, $data[$key]);
             }
