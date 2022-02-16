@@ -26,6 +26,7 @@ class InvestorPostType
             'public' => true,
             'has_archive' => true,
             'show_ui' => true,
+            'show_in_menu' => true,
             'capability_type' => 'post',
             'hierarchical' => false,
             'rewrite' => array('slug' => 'product'),
@@ -76,6 +77,7 @@ class InvestorPostType
         add_role(INVESTOR_POST_TYPE, 'Investor');
         add_filter('manage_investor_posts_columns', function ($columns) {
             $custom_col_order = array(
+                'cb' => __('cb'),
                 'title' => __('Name'),
                 'date_of_payment' => __('Payment Date'),
                 'share' => __('Share'),
@@ -91,22 +93,22 @@ class InvestorPostType
             switch ($column) {
 
                 case 'share':
-                    $share = (get_post_meta($post_id, 'share') || [])[0];
+                    $share = (get_post_meta($post_id, 'share') ?? [])[0];
                     echo ((float) $share * 100) . '%';
                     break;
 
                 case 'location':
-                    $location = (get_post_meta($post_id, 'location') || [])[0];
+                    $location = (get_post_meta($post_id, 'location') ?? [])[0];
                     echo $location;
                     break;
 
                 case 'date_of_payment':
-                    $date_of_payment = (get_post_meta($post_id, 'date_of_payment') || [])[0];
+                    $date_of_payment = (get_post_meta($post_id, 'date_of_payment') ?? [])[0];
                     echo $date_of_payment;
                     break;
 
                 case 'broker':
-                    $broker = (get_post_meta($post_id, 'broker') || [])[0];
+                    $broker = (get_post_meta($post_id, 'broker') ?? [])[0];
                     echo $broker;
                     break;
             }

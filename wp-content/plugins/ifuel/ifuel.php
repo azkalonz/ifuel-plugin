@@ -24,8 +24,8 @@ if (!defined('WPINC')) {
 
 function activate_plugin_name()
 {
-    init_post_type();
-    InvestorsSeeder::seed();
+    // init_post_type();
+    // InvestorsSeeder::seed();
 }
 
 function deactivate_plugin_name()
