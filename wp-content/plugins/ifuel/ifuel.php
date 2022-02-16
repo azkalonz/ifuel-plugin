@@ -9,7 +9,10 @@
  * Author URI: http://github.com/azkalonz/
  **/
 
-define("PLUGIN_ROOT", plugin_dir_path(__FILE__));
+define('PLUGIN_ROOT', plugin_dir_path(__FILE__));
+define('INVESTOR_POST_TYPE', 'investor');
+define('INVESTOR_TAXONOMY', 'investor_location');
+define('TEMP_DIR', PLUGIN_ROOT . 'database/temp');
 
 require_once PLUGIN_ROOT . '/includes/class-ifuel-investors-seeder.php';
 require_once PLUGIN_ROOT . '/includes/class-ifuel-investor-posttype.php';

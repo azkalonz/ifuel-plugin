@@ -21,30 +21,46 @@ class InvestorsSeeder
 
     public static function create_user($data)
     {
-        if (empty($data[6]) || empty($data[4])) return;
-        $user = array(
-            'user_login' => $data[6],
-            'user_email' => $data[6],
-            'user_nicename' => $data[0]
-        );
-        if (!username_exists($data[6])) {
-            $user_id = wp_insert_user($user);
+        global $wpdb;
+        if (empty($data[4])) return;
+        if (!empty($data[6])) {
+            $user = array(
+                'user_login' => $data[6],
+                'user_email' => $data[6],
+                'user_nicename' => $data[0],
+                'role' => 'investor'
+            );
+            if (!username_exists($data[6])) {
+                $user = wp_insert_user($user);
+            } else {
+                $user = get_user_by('email', $user['user_email']);
+                $sql = "SELECT * FROM wp_postmeta WHERE meta_key = 'user_id' AND meta_value = '$user->ID'";
+                $results = $wpdb->get_results($sql);
+                foreach ($results as $result) {
+                    $old_post = $result->post_id;
+                    foreach (self::$requiredHeaders as $key => $value) {
+                        delete_post_meta($old_post, $value, $data[$key]);
+                    }
+                    wp_delete_post($old_post, true);
+                }
+            }
             $postarr = [
                 'post_title' => $data[0],
                 'post_status' => 'publish',
                 'post_type' => 'investor',
             ];
+            $post = wp_insert_post($postarr);
+
             $term_slug = sanitize_title($data[4]);
             $taxonomy = 'investor_location';
             if (!get_term_by('slug', $term_slug, $taxonomy))
                 wp_insert_term($data[4], $taxonomy, $term_slug);
-            $post = wp_insert_post($postarr);
             wp_set_object_terms($post, $term_slug, $taxonomy);
 
             foreach (self::$requiredHeaders as $key => $value) {
                 add_post_meta($post, $value, $data[$key]);
             }
-            add_post_meta($post, 'user_id', $user_id);
+            add_post_meta($post, 'user_id', $user->ID);
         }
     }
 
@@ -54,7 +70,6 @@ class InvestorsSeeder
         $firstLine = fgets($csv_file);
         $fileHeader = str_getcsv(trim($firstLine), ',', "'");
         $fileHeader[0] = "name";
-
         if ($fileHeader !== self::$requiredHeaders) {
             return false;
         }
