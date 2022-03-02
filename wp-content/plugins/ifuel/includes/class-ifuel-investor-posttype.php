@@ -74,6 +74,45 @@ class InvestorPostType
 
     public static function hooks()
     {
+        add_action('save_post', 'save_investor', 1, 3);
+        function save_investor($post_id, $post, $update)
+        {
+            if (!is_object($post) || !isset($post->post_type)) {
+                return;
+            }
+            if ('trash' != get_post_status($post_id)) {
+                remove_action('save_post', 'save_investor');
+                if (!$update) {
+
+                    switch ($post->post_type) {
+                        case INVESTOR_POST_TYPE:
+                            $data = [];
+                            foreach (InvestorsSeeder::$requiredHeaders as $key => $value) {
+                                $meta_value = (get_post_meta($post_id, $value) ?? []);
+                                if (gettype($meta_value) == 'array' && sizeof($meta_value) > 0) {
+                                    $meta_value = $meta_value[0];
+                                } else if (empty($meta_value)) {
+                                    $meta_value = "";
+                                }
+                                array_push($data, $meta_value);
+                            }
+                            InvestorsSeeder::create_user($data);
+                    }
+                } else {
+                    $locations = get_the_terms($post, INVESTOR_TAXONOMY);
+                    $l = [];
+                    if ($locations) {
+                        foreach ($locations as $key => $value) {
+                            array_push($l, $value->name);
+                        }
+                    }
+                    update_post_meta($post_id, 'location', implode(", ", $l));
+                }
+
+                add_action('save_post', 'save_investor', 1, 3);
+            }
+        }
+
         add_role(INVESTOR_POST_TYPE, 'Investor');
         add_filter('manage_investor_posts_columns', function ($columns) {
             $custom_col_order = array(
