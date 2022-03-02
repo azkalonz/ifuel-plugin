@@ -29,9 +29,8 @@ class InvestorPostType
             'show_in_menu' => true,
             'capability_type' => 'post',
             'hierarchical' => false,
-            'rewrite' => array('slug' => 'product'),
             'query_var' => true,
-            'menu_icon' => 'dashicons-randomize',
+            'menu_icon' => 'dashicons-admin-users',
             'supports' => array(
                 'title',
                 'custom-fields',
@@ -70,6 +69,7 @@ class InvestorPostType
             'show_in_admin_status_list' => true,
             'label_count'               => _n_noop('Banned <span class="count">(%s)</span>', 'Banned <span class="count">(%s)</span>'),
         ));
+        add_role(INVESTOR_POST_TYPE, 'Investor');
     }
 
     public static function hooks()
@@ -113,7 +113,6 @@ class InvestorPostType
             }
         }
 
-        add_role(INVESTOR_POST_TYPE, 'Investor');
         add_filter('manage_investor_posts_columns', function ($columns) {
             $custom_col_order = array(
                 'cb' => __('cb'),
