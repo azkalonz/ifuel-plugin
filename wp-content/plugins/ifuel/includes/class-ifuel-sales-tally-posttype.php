@@ -10,14 +10,20 @@ class SalesTallyPostType
         ],
         'Pump Reading Beg' => ['type' => 'text'],
         'Pump Reading End' => ['type' => 'text'],
-        'Date' => ['type' => 'date'],
+        'Date' => ['type' => 'date', 'hasDefault' => true],
         'Reading in Liters' => ['type' => 'text'],
     );
     public static $form_fields2 = array(
-        'Pump' => ['type' => 'text'],
+        'Pump' => [
+            'type' => 'select',
+            'options' => array('Pump 1', 'Pump 2', 'Pump 3', 'Pump 4', 'Pump 5', 'Pump 6')
+        ],
         'Total Sales Amt.' => ['type' => 'text'],
         'Total Sales Volume' => ['type' => 'text'],
-        'Shift Schedule' => ['type' => 'datetime-local'],
+        'Shift Schedule' => [
+            'type' => 'select',
+            'options' => array('1st', '2nd', '3rd')
+        ],
         'Variance in Liters' => ['type' => 'text'],
         'Cashier' => ['type' => 'text'],
     );
@@ -37,74 +43,18 @@ class SalesTallyPostType
         'menu_name' => 'Sales Tally',
     );
 
-    public static function build_form_field($title, $args, $value)
+    public function getDefault($key)
     {
-        $key = sanitize_title($title);
-        switch ($args['type']) {
-            case 'select':
-?>
-<label for="<?php echo $key ?>"><?php echo $title ?></label>
-<select id="<?php echo $key ?>" name="<?php echo $key ?>">
-    <?php foreach ($args['options'] as $key => $value) : ?>
-    <option <?php echo $value == $value ? 'selected' : '' ?>>
-        <?php echo $value ?>
-    </option>
-    <?php endforeach; ?>
-</select>
-<?php
-                break;
-            default:
-            ?>
-<label for="<?php echo $key ?>"><?php echo $title ?></label>
-<input type="<?php echo $args['type'] ?>" id="<?php echo $key ?>" name="<?php echo $key ?>"
-    value="<?php echo $value ?>" />
-<?php
-                break;
+        switch ($key) {
+            case sanitize_title("Date"):
+                return date('Y-m-d');
         }
+        return null;
     }
 
-    public static function getArgs()
+    public static function getStyle()
     {
-        $args = array(
-            'labels' => self::$labels,
-            'public' => true,
-            'has_archive' => true,
-            'show_ui' => true,
-            'show_in_menu' => true,
-            'capability_type' => 'post',
-            'hierarchical' => false,
-            'query_var' => true,
-            'menu_icon' => 'dashicons-cart',
-            'supports' => array(
-                'custom-fields',
-            )
-        );
-
-        return $args;
-    }
-
-    public static function add_tally()
-    {
-        return $_POST;
-    }
-
-    public static function register()
-    {
-        register_post_type(SALES_TALLY_POST_TYPE, self::getArgs());
-        add_shortcode('sales_tally', 'sales_tally_func');
-        function sales_tally_func($atts)
-        {
-            $user = wp_get_current_user();
-            $branch = get_user_meta($user->ID, 'branch_location');
-            if (!in_array(sanitize_title(BRANCH_MANAGER_ROLE), $user->roles)) {
-                return;
-            }
-            if (isset($_POST['add_tally'])) {
-                $values = SalesTallyPostType::add_tally();
-            }
-            $location = get_term_by('slug', $branch[0], INVESTOR_TAXONOMY);
-            $title = 'iFUEL ' . $location->name;
-            ?>
+?>
 <style>
 .sales-tally {
     width: 100% !important;
@@ -148,6 +98,188 @@ class SalesTallyPostType
     margin-top: 18px;
 }
 </style>
+<?php
+    }
+    public static function build_form_field($title, $args, $tvalue)
+    {
+        $SALES_TYPE = new SalesTallyPostType();
+        $key = sanitize_title($title);
+        switch ($args['type']) {
+            case 'select':
+        ?>
+<label for="<?php echo $key ?>"><?php echo $title ?></label>
+<select id="<?php echo $key ?>" name="<?php echo $key ?>">
+    <?php foreach ($args['options'] as $key => $value) : ?>
+    <?php if (isset($tvalue)) : ?>
+    <option <?php echo $value == $tvalue ? 'selected' : '' ?>>
+        <?php echo $value ?>
+    </option>
+    <?php endif; ?>
+    <?php if (!isset($tvalue)) : ?>
+    <option <?php echo $key == 0 ? 'selected' : '' ?>>
+        <?php echo $value ?>
+    </option>
+    <?php endif; ?>
+    <?php endforeach; ?>
+</select>
+<?php
+                break;
+            default:
+            ?>
+<label for="<?php echo $key ?>"><?php echo $title ?></label>
+<input type="<?php echo $args['type'] ?>" id="<?php echo $key ?>" name="<?php echo $key ?>"
+    value="<?php echo isset($args['hasDefault']) && $args['hasDefault'] ? $SALES_TYPE->getDefault($key) : $tvalue ?>" />
+<?php
+                break;
+        }
+    }
+
+    public static function getArgs()
+    {
+        $args = array(
+            'labels' => self::$labels,
+            'public' => true,
+            'has_archive' => true,
+            'show_ui' => true,
+            'show_in_menu' => true,
+            'capability_type' => 'post',
+            'hierarchical' => false,
+            'query_var' => true,
+            'menu_icon' => 'dashicons-cart',
+            'supports' => array(
+                'custom-fields',
+            )
+        );
+
+        return $args;
+    }
+
+    public static function add_tally($data)
+    {
+        if (empty($data['date'])) {
+            $data['date'] = date('Y-m-d');
+        }
+        $post = wp_insert_post([
+            'ID' => (int)(isset($data['ID']) ? $data['ID'] : 0),
+            'post_title' => date('Y-m-d'),
+            "post_status" => "publish",
+            "post_content" => " ",
+            'post_type' => SALES_TALLY_POST_TYPE,
+
+        ], true);
+        foreach ($data as $key => $value) {
+            if ($key == 'ID') continue;
+            delete_post_meta($post, $key);
+            add_post_meta($post, $key, $value);
+        }
+        $data['ID'] = $post;
+        return $data;
+    }
+
+    public static function register()
+    {
+        register_post_type(SALES_TALLY_POST_TYPE, self::getArgs());
+        add_shortcode('sales_tally_list', 'sales_tally_list_func');
+        function sales_tally_list_func($atts)
+        {
+            SalesTallyPostType::getStyle();
+            $the_query = new WP_Query(
+                array(
+                    'posts_per_page' => 10,
+                    'post_type' => SALES_TALLY_POST_TYPE,
+                    'paged' => get_query_var('paged') ? get_query_var('paged') : 1
+                )
+            );
+            ?>
+<div class="sales-tally">
+    <h1>Sales Tally</h1>
+    <table>
+        <tbody>
+            <tr>
+                <th>Date</th>
+                <th>Sales Volume</th>
+                <th>Sales Amount</th>
+                <th>Reading (L)</th>
+                <th>Variance (L)</th>
+                <th>Cashier</th>
+            </tr>
+            <?php while ($the_query->have_posts()) : $the_query->the_post(); ?>
+            <?php
+                            $meta = get_post_meta(get_the_ID());
+                            ?>
+            <tr>
+                <td>
+                    <a href="<?php echo add_query_arg('ID', get_the_ID(), get_page_link(get_page_by_title('Sales Tally'))) ?>"
+                        class="file-title" target="_blank">
+                        <?php echo !empty($meta['date'][0]) ? $meta['date'][0] : get_the_title() ?>
+                    </a>
+                </td>
+                <td>
+                    <?php echo $meta['total-sales-volume'][0] ?>
+                </td>
+                <td>
+                    <?php echo $meta['total-sales-amt'][0] ?>
+
+                </td>
+                <td>
+                    <?php echo $meta['reading-in-liters'][0] ?>
+
+                </td>
+                <td>
+                    <?php echo $meta['variance-in-liters'][0] ?>
+                </td>
+                <td>
+                    <?php echo $meta['cashier'][0] ?>
+                </td>
+            </tr>
+            <?php
+                        endwhile; ?>
+        </tbody>
+    </table>
+    <div>
+        <?php
+                    $big = 999999999; // need an unlikely integer
+                    echo paginate_links(array(
+                        'base' => str_replace($big, '%#%', get_pagenum_link($big)),
+                        'format' => '?paged=%#%',
+                        'current' => max(1, get_query_var('paged')),
+                        'total' => $the_query->max_num_pages
+                    ));
+
+                    wp_reset_postdata();
+                    ?>
+    </div>
+</div>
+<?php
+        }
+        add_shortcode('sales_tally', 'sales_tally_func');
+        function sales_tally_func($atts)
+        {
+            $user = wp_get_current_user();
+            $branch = get_user_meta($user->ID, 'branch_location');
+            if (!in_array(sanitize_title(BRANCH_MANAGER_ROLE), $user->roles)) {
+                return;
+            }
+            if (isset($_POST['add_tally'])) {
+                $values = SalesTallyPostType::add_tally($_POST);
+            }
+            if (isset($_GET['ID'])) {
+                $data = [];
+                $post = get_post($_GET['ID']);
+                $data['ID'] = $post->ID;
+                $data['post_title'] = $post->post_title;
+                $data['post_status'] = $post->post_status;
+                $data['post_content'] = $post->post_content;
+                $data['post_type'] = $post->post_type;
+                foreach (get_post_meta($post->ID) as $key => $value) {
+                    $data[$key] = $value[0];
+                }
+                $values = $data;
+            }
+            $location = get_term_by('slug', $branch[0], INVESTOR_TAXONOMY);
+            $title = 'iFUEL ' . $location->name;
+        ?>
+<?php SalesTallyPostType::getStyle() ?>
 <div class="sales-tally">
     <h1><?php echo $title ?></h1>
     <form method="POST" id="sales-tally">
@@ -162,11 +294,15 @@ class SalesTallyPostType
                 <?php SalesTallyPostType::build_form_field($key, $value,  isset($values) ? $values[sanitize_title($key)] : null) ?>
                 <?php endforeach; ?>
                 <div class="footer">
-                    <input type="button" value="Add Sales" onclick="submitTally()" />
+                    <input type="button" value="New"
+                        onclick="window.location = '<?php echo get_page_link(get_page_by_title('Sales Tally')) ?>'" />
+                    <input type="button" value="<?php echo isset($values['ID']) ? 'Save' : 'Add Sales' ?>"
+                        onclick="submitTally()" />
                 </div>
             </div>
         </div>
         <input type="hidden" name="add_tally" value="true" />
+        <input type="hidden" name="ID" value="<?php echo isset($values['ID']) ? $values['ID'] : null ?>" />
     </form>
 </div>
 <script>
@@ -175,6 +311,22 @@ function submitTally() {
     form.classList.add('submitting');
     form.submit();
 }
+(() => {
+    const $ = (e) => document.querySelectorAll(e);
+    $('#pump-reading-end, #pump-reading-beg, #reading-in-liters, #total-sales-volume').forEach((el) => {
+        el.addEventListener('input', () => {
+            try {
+                $('#reading-in-liters')[0].value = ($('#pump-reading-end')[0].value - $(
+                        '#pump-reading-beg')[0]
+                    .value);
+                $('#variance-in-liters')[0].value = ($('#total-sales-volume')[0].value - $(
+                        '#reading-in-liters')[0]
+                    .value);
+            } catch (e) {}
+        })
+    })
+
+})();
 </script>
 <?php
         }
@@ -191,10 +343,21 @@ function submitTally() {
                 return;
             }
             $page = get_page_by_title('Sales Tally');
+            $listpage = get_page_by_title('Sales Tally List');
             $admin_bar->add_menu(array(
-                'id'    => 'my-item',
+                'id'    => 'sales-tally',
                 'title' => 'Sales Tally', // Your menu title
                 'href'  => get_page_link($page), // URL
+                'meta'  => array(
+                    'target' => '_blank',
+                ),
+            ));
+
+            $admin_bar->add_menu(array(
+                'id'    => 'sales-tally-list',
+                'parent' => 'sales-tally',
+                'title' => 'All Sales',
+                'href'  => get_page_link($listpage),
                 'meta'  => array(
                     'target' => '_blank',
                 ),
