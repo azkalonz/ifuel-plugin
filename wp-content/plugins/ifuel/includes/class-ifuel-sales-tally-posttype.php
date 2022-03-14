@@ -185,6 +185,7 @@ class SalesTallyPostType
         add_shortcode('sales_tally_list', 'sales_tally_list_func');
         function sales_tally_list_func($atts)
         {
+            ob_start();
             SalesTallyPostType::getStyle();
             $user = wp_get_current_user();
             $branch = get_user_meta($user->ID, 'branch_location');
@@ -296,10 +297,12 @@ $(function() {
 });
 </script>
 <?php
+            ob_end_clean();
         }
         add_shortcode('sales_tally', 'sales_tally_func');
         function sales_tally_func($atts)
         {
+            ob_start();
             $user = wp_get_current_user();
             $branch = get_user_meta($user->ID, 'branch_location');
             if (!in_array(sanitize_title(BRANCH_MANAGER_ROLE), $user->roles)) {
@@ -374,6 +377,7 @@ function submitTally() {
 })();
 </script>
 <?php
+            ob_end_clean();
         }
         add_role(sanitize_title(BRANCH_MANAGER_ROLE), BRANCH_MANAGER_ROLE);
     }
