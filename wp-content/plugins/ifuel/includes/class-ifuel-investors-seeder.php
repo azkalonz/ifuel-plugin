@@ -30,7 +30,7 @@ class InvestorsSeeder
                 'user_login' => $data[6],
                 'user_email' => $data[6],
                 'user_nicename' => $data[0],
-                'role' => 'investor'
+                'role' => INVESTOR_POST_TYPE
             );
             if (!username_exists($data[6])) {
                 $user = wp_insert_user($user_data);
@@ -49,7 +49,7 @@ class InvestorsSeeder
             $postarr = [
                 'post_title' => $data[0],
                 'post_status' => 'publish',
-                'post_type' => 'investor',
+                'post_type' => INVESTOR_POST_TYPE,
             ];
             $post = wp_insert_post($postarr);
 

@@ -159,6 +159,8 @@ class SalesTallyPostType
         if (empty($data['date'])) {
             $data['date'] = date('Y-m-d');
         }
+        $user = wp_get_current_user();
+        $branch = get_user_meta($user->ID, 'branch_location');
         $post = wp_insert_post([
             'ID' => (int)(isset($data['ID']) ? $data['ID'] : 0),
             'post_title' => date('Y-m-d'),
@@ -172,6 +174,7 @@ class SalesTallyPostType
             delete_post_meta($post, $key);
             add_post_meta($post, $key, $value);
         }
+        add_post_meta($post, 'branch', $branch[0]);
         $data['ID'] = $post;
         return $data;
     }
@@ -183,16 +186,41 @@ class SalesTallyPostType
         function sales_tally_list_func($atts)
         {
             SalesTallyPostType::getStyle();
+            $user = wp_get_current_user();
+            $branch = get_user_meta($user->ID, 'branch_location');
+            $from = $_GET['from'] ?? date('Y/m/01');
+            $to = $_GET['to'] ??  date('Y/m/d');
             $the_query = new WP_Query(
                 array(
                     'posts_per_page' => 10,
                     'post_type' => SALES_TALLY_POST_TYPE,
-                    'paged' => get_query_var('paged') ? get_query_var('paged') : 1
+                    'paged' => get_query_var('paged') ? get_query_var('paged') : 1,
+                    'meta_query' => array(
+                        'relation' => 'AND',
+                        array(
+                            'key' => 'branch',
+                            'value' => $branch[0],
+                        ),
+                        array(
+                            'key' => 'date',
+                            'value' => array($from, $to),
+                            'compare' => 'BETWEEN',
+                            'type' => 'DATE'
+                        ),
+                    )
                 )
             );
             ?>
+<script type="text/javascript" src="https://cdn.jsdelivr.net/jquery/latest/jquery.min.js"></script>
+<script type="text/javascript" src="https://cdn.jsdelivr.net/momentjs/latest/moment.min.js"></script>
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
+<link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.css" />
 <div class="sales-tally">
-    <h1>Sales Tally</h1>
+    <h1 style="text-transform: capitalize;"><?php echo $branch[0] ?></h1>
+    <label for="datepicker">
+        Date Range
+    </label>
+    <input id="datepicker" />
     <table>
         <tbody>
             <tr>
@@ -250,6 +278,23 @@ class SalesTallyPostType
                     ?>
     </div>
 </div>
+<script>
+$(function() {
+    $('#datepicker').daterangepicker({
+        opens: 'left',
+        startDate: new Date(`<?php echo $from ?>`),
+        endDate: new Date(`<?php echo $to ?>`)
+    }, function(start, end, label) {
+        let newloc = `<?php echo add_query_arg(array(
+                                            'from' => '$FROM',
+                                            'to' => '$TO'
+                                        ), get_page_link(get_page_by_title('Sales Tally List'))) ?>`;
+        newloc = newloc.replace('$FROM', start.format('YYYY/MM/DD'));
+        newloc = newloc.replace('$TO', end.format('YYYY/MM/DD'));
+        window.location = newloc;
+    });
+});
+</script>
 <?php
         }
         add_shortcode('sales_tally', 'sales_tally_func');
