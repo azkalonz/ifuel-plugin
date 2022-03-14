@@ -65,6 +65,15 @@ class SalesTallyPostType
     padding: 30px;
 }
 
+.sales-tally .success {
+    background: #c9ffc9;
+    border: 1px solid green;
+    padding: 8px;
+    border-radius: 8px;
+    margin: 13px 0;
+    font-size: smaller;
+}
+
 .sales-tally h1 {
     text-align: center;
     margin: 0;
@@ -186,6 +195,14 @@ class SalesTallyPostType
         function sales_tally_list_func($atts)
         {
             ob_start();
+            if (isset($_POST['delete'])) {
+                $deleted = 0;
+                foreach ($_POST['delete'] as $key => $value) {
+                    if (wp_delete_post((int)$value, true)) {
+                        $deleted++;
+                    }
+                }
+            }
             SalesTallyPostType::getStyle();
             $user = wp_get_current_user();
             $branch = get_user_meta($user->ID, 'branch_location');
@@ -222,49 +239,63 @@ class SalesTallyPostType
         Date Range
     </label>
     <input id="datepicker" />
-    <table>
-        <tbody>
-            <tr>
-                <th>Date</th>
-                <th>Sales Volume</th>
-                <th>Sales Amount</th>
-                <th>Reading (L)</th>
-                <th>Variance (L)</th>
-                <th>Cashier</th>
-            </tr>
-            <?php while ($the_query->have_posts()) : $the_query->the_post(); ?>
-            <?php
-                            $meta = get_post_meta(get_the_ID());
-                            ?>
-            <tr>
-                <td>
-                    <a href="<?php echo add_query_arg('ID', get_the_ID(), get_page_link(get_page_by_title('Sales Tally'))) ?>"
-                        class="file-title" target="_blank">
-                        <?php echo !empty($meta['date'][0]) ? $meta['date'][0] : get_the_title() ?>
-                    </a>
-                </td>
-                <td>
-                    <?php echo $meta['total-sales-volume'][0] ?>
-                </td>
-                <td>
-                    <?php echo $meta['total-sales-amt'][0] ?>
+    <form method="POST">
+        <input type="submit" value="Delete" style="display: none;" />
+        <?php if (isset($deleted)) : ?>
+        <div class="success">
+            <span>Deleted <b><?php echo $deleted ?></b> items successfully.</span>
+        </div>
+        <?php endif; ?>
+        <table style="margin-top:0;">
+            <tbody>
+                <tr>
+                    <th>
+                        <input type="checkbox" id="check-all" />
+                    </th>
+                    <th>Date</th>
+                    <th>Sales Volume</th>
+                    <th>Sales Amount</th>
+                    <th>Reading (L)</th>
+                    <th>Variance (L)</th>
+                    <th>Cashier</th>
+                </tr>
+                <?php while ($the_query->have_posts()) : $the_query->the_post(); ?>
+                <?php
+                                $meta = get_post_meta(get_the_ID());
+                                ?>
+                <tr>
+                    <td>
+                        <input type="checkbox" class="check-sale" name="delete[]" value="<?php echo the_ID() ?>" />
+                    </td>
+                    <td>
+                        <a href="<?php echo add_query_arg('ID', get_the_ID(), get_page_link(get_page_by_title('Sales Tally'))) ?>"
+                            class="file-title" target="_blank">
+                            <?php echo !empty($meta['date'][0]) ? $meta['date'][0] : get_the_title() ?>
+                        </a>
+                    </td>
+                    <td>
+                        <?php echo $meta['total-sales-volume'][0] ?>
+                    </td>
+                    <td>
+                        <?php echo $meta['total-sales-amt'][0] ?>
 
-                </td>
-                <td>
-                    <?php echo $meta['reading-in-liters'][0] ?>
+                    </td>
+                    <td>
+                        <?php echo $meta['reading-in-liters'][0] ?>
 
-                </td>
-                <td>
-                    <?php echo $meta['variance-in-liters'][0] ?>
-                </td>
-                <td>
-                    <?php echo $meta['cashier'][0] ?>
-                </td>
-            </tr>
-            <?php
-                        endwhile; ?>
-        </tbody>
-    </table>
+                    </td>
+                    <td>
+                        <?php echo $meta['variance-in-liters'][0] ?>
+                    </td>
+                    <td>
+                        <?php echo $meta['cashier'][0] ?>
+                    </td>
+                </tr>
+                <?php
+                            endwhile; ?>
+            </tbody>
+        </table>
+    </form>
     <div>
         <?php
                     $big = 999999999; // need an unlikely integer
@@ -294,6 +325,20 @@ $(function() {
         newloc = newloc.replace('$TO', end.format('YYYY/MM/DD'));
         window.location = newloc;
     });
+    $('#check-all').on('change', function() {
+        $('[name="delete[]"]').prop('checked', this.checked)
+    })
+    $('input').on('change', function() {
+        let f = false;
+        $('input').each(function() {
+            if (this.checked) f = true;
+        })
+        if (f) {
+            $('[type=submit]').show();
+        } else {
+            $('[type=submit]').hide();
+        }
+    })
 });
 </script>
 <?php
