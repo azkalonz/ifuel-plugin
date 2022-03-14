@@ -297,7 +297,8 @@ $(function() {
 });
 </script>
 <?php
-            ob_end_clean();
+            $html = ob_get_clean();
+            return $html;
         }
         add_shortcode('sales_tally', 'sales_tally_func');
         function sales_tally_func($atts)
@@ -377,7 +378,8 @@ function submitTally() {
 })();
 </script>
 <?php
-            ob_end_clean();
+            $html = ob_get_clean();
+            return $html;
         }
         add_role(sanitize_title(BRANCH_MANAGER_ROLE), BRANCH_MANAGER_ROLE);
     }
