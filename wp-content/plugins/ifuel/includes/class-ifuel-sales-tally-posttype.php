@@ -185,12 +185,109 @@ class SalesTallyPostType
         }
         add_post_meta($post, 'branch', $branch[0]);
         $data['ID'] = $post;
+
+        $inventory = get_posts([
+            's' => $data['fuel-type'],
+            'post_type' => INVENTORY_POST_TYPE,
+            'meta_key' => 'branch',
+            'meta_query' => array(
+                'key' => 'branch',
+                'value' => $branch[0],
+                'compare' => '='
+            )
+        ]);
+        echo $branch[0];
+
+        foreach ($inventory as $key => $product) {
+            $volume = get_post_meta($product->ID, 'volume');
+            $volume = (float)$volume[0] ?? 0;
+            update_post_meta($product->ID, 'volume', $volume - (float)$data['total-sales-volume']);
+        }
+
         return $data;
     }
 
     public static function register()
     {
         register_post_type(SALES_TALLY_POST_TYPE, self::getArgs());
+        add_role(sanitize_title(BRANCH_MANAGER_ROLE), BRANCH_MANAGER_ROLE);
+    }
+
+    public static function hooks()
+    {
+        add_action('admin_bar_menu', 'add_toolbar_items', 100);
+        function add_toolbar_items($admin_bar)
+        {
+            $user = wp_get_current_user();
+            if (!in_array(sanitize_title(BRANCH_MANAGER_ROLE), $user->roles)) {
+                return;
+            }
+            $page = get_page_by_title('Sales Tally');
+            $listpage = get_page_by_title('Sales Tally List');
+            $admin_bar->add_menu(array(
+                'id'    => 'sales-tally',
+                'title' => 'Sales Tally', // Your menu title
+                'href'  => get_page_link($page), // URL
+                'meta'  => array(
+                    'target' => '_blank',
+                ),
+            ));
+
+            $admin_bar->add_menu(array(
+                'id'    => 'sales-tally-list',
+                'parent' => 'sales-tally',
+                'title' => 'All Sales',
+                'href'  => get_page_link($listpage),
+                'meta'  => array(
+                    'target' => '_blank',
+                ),
+            ));
+        }
+
+        function user_branch_form($user)
+        {
+            if (isset($user->roles) && !in_array(sanitize_title(BRANCH_MANAGER_ROLE), $user->roles)) {
+                return;
+            }
+            ?>
+<h2>Branch</h2>
+<table class="form-table">
+    <tr>
+        <th><label for="user_branch_location">Location</label></th>
+        <td>
+            <select type="date" name="user_branch_location" id="user_branch_location">
+                <?php
+                            $taxonomies = get_terms(array('taxonomy' => INVESTOR_TAXONOMY));
+                            foreach ($taxonomies as $key => $value) : ?>
+                <option
+                    <?php echo esc_attr(get_user_meta($user->ID, 'branch_location', true)) == $value->slug ? 'selected' : '' ?>
+                    value="<?php echo $value->slug ?>"><?php echo $value->name ?></option>
+                <?php endforeach; ?>
+            </select>
+        </td>
+    </tr>
+</table>
+<?php
+        }
+        add_action('show_user_profile', 'user_branch_form'); // editing your own profile
+        add_action('edit_user_profile', 'user_branch_form'); // editing another user
+        add_action('user_new_form', 'user_branch_form'); // creating a new user
+
+        function userMetaBirthdaySave($userId)
+        {
+            if (!current_user_can('edit_user', $userId) || !isset($_REQUEST['user_branch_location'])) {
+                return;
+            }
+
+            update_user_meta($userId, 'branch_location', $_REQUEST['user_branch_location']);
+        }
+        add_action('personal_options_update', 'userMetaBirthdaySave');
+        add_action('edit_user_profile_update', 'userMetaBirthdaySave');
+        add_action('user_register', 'userMetaBirthdaySave');
+    }
+
+    public static function shortcodes()
+    {
         add_shortcode('sales_tally_list', 'sales_tally_list_func');
         function sales_tally_list_func($atts)
         {
@@ -228,7 +325,7 @@ class SalesTallyPostType
                     )
                 )
             );
-            ?>
+        ?>
 <script type="text/javascript" src="https://cdn.jsdelivr.net/jquery/latest/jquery.min.js"></script>
 <script type="text/javascript" src="https://cdn.jsdelivr.net/momentjs/latest/moment.min.js"></script>
 <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
@@ -426,79 +523,5 @@ function submitTally() {
             $html = ob_get_clean();
             return $html;
         }
-        add_role(sanitize_title(BRANCH_MANAGER_ROLE), BRANCH_MANAGER_ROLE);
-    }
-
-    public static function hooks()
-    {
-        add_action('admin_bar_menu', 'add_toolbar_items', 100);
-        function add_toolbar_items($admin_bar)
-        {
-            $user = wp_get_current_user();
-            if (!in_array(sanitize_title(BRANCH_MANAGER_ROLE), $user->roles)) {
-                return;
-            }
-            $page = get_page_by_title('Sales Tally');
-            $listpage = get_page_by_title('Sales Tally List');
-            $admin_bar->add_menu(array(
-                'id'    => 'sales-tally',
-                'title' => 'Sales Tally', // Your menu title
-                'href'  => get_page_link($page), // URL
-                'meta'  => array(
-                    'target' => '_blank',
-                ),
-            ));
-
-            $admin_bar->add_menu(array(
-                'id'    => 'sales-tally-list',
-                'parent' => 'sales-tally',
-                'title' => 'All Sales',
-                'href'  => get_page_link($listpage),
-                'meta'  => array(
-                    'target' => '_blank',
-                ),
-            ));
-        }
-
-        function user_branch_form($user)
-        {
-            if (isset($user->roles) && !in_array(sanitize_title(BRANCH_MANAGER_ROLE), $user->roles)) {
-                return;
-            }
-        ?>
-<h2>Branch</h2>
-<table class="form-table">
-    <tr>
-        <th><label for="user_branch_location">Location</label></th>
-        <td>
-            <select type="date" name="user_branch_location" id="user_branch_location">
-                <?php
-                            $taxonomies = get_terms(array('taxonomy' => INVESTOR_TAXONOMY));
-                            foreach ($taxonomies as $key => $value) : ?>
-                <option
-                    <?php echo esc_attr(get_user_meta($user->ID, 'branch_location', true)) == $value->slug ? 'selected' : '' ?>
-                    value="<?php echo $value->slug ?>"><?php echo $value->name ?></option>
-                <?php endforeach; ?>
-            </select>
-        </td>
-    </tr>
-</table>
-<?php
-        }
-        add_action('show_user_profile', 'user_branch_form'); // editing your own profile
-        add_action('edit_user_profile', 'user_branch_form'); // editing another user
-        add_action('user_new_form', 'user_branch_form'); // creating a new user
-
-        function userMetaBirthdaySave($userId)
-        {
-            if (!current_user_can('edit_user', $userId) || !isset($_REQUEST['user_branch_location'])) {
-                return;
-            }
-
-            update_user_meta($userId, 'branch_location', $_REQUEST['user_branch_location']);
-        }
-        add_action('personal_options_update', 'userMetaBirthdaySave');
-        add_action('edit_user_profile_update', 'userMetaBirthdaySave');
-        add_action('user_register', 'userMetaBirthdaySave');
     }
 }

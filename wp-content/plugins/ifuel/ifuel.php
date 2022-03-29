@@ -15,10 +15,13 @@ define('INVESTOR_TAXONOMY', 'investor_location');
 define('TEMP_DIR', PLUGIN_ROOT . 'database/temp');
 define('SALES_TALLY_POST_TYPE', 'sales_tally');
 define('BRANCH_MANAGER_ROLE', 'Branch Manager');
+define('INVENTORY_POST_TYPE', 'ifuel_inventory');
+
 
 require_once PLUGIN_ROOT . '/includes/class-ifuel-investors-seeder.php';
 require_once PLUGIN_ROOT . '/includes/class-ifuel-investor-posttype.php';
 require_once PLUGIN_ROOT . '/includes/class-ifuel-sales-tally-posttype.php';
+require_once PLUGIN_ROOT . '/includes/class-ifuel-inventory-posttype.php';
 
 // If this file is called directly, abort.
 if (!defined('WPINC')) {
@@ -37,11 +40,16 @@ function deactivate_plugin_name()
 
 function init_post_type()
 {
+    InventoryPosttype::register();
+    InventoryPosttype::hooks();
+    InventoryPosttype::shortcodes();
+
     InvestorPostType::register();
     InvestorPostType::hooks();
 
     SalesTallyPostType::register();
     SalesTallyPostType::hooks();
+    SalesTallyPostType::shortcodes();
 }
 
 add_action('init', 'init_post_type');
