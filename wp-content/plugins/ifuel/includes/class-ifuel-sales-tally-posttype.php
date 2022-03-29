@@ -196,7 +196,6 @@ class SalesTallyPostType
                 'compare' => '='
             )
         ]);
-        echo $branch[0];
 
         foreach ($inventory as $key => $product) {
             $volume = get_post_meta($product->ID, 'volume');
