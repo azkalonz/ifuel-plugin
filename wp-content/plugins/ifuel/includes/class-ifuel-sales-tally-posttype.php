@@ -581,7 +581,7 @@ class SalesTallyPostType
         <?php
                             $big = 999999999; // need an unlikely integer
                             echo paginate_links(array(
-                                'base' => str_replace($big, '%#%', get_pagenum_link($big)),
+                                'base' => str_replace([$big, '&#038;'], ['%#%', '&'], get_pagenum_link($big)),
                                 'format' => '?paged=%#%',
                                 'current' => max(1, get_query_var('paged')),
                                 'total' => $the_query->max_num_pages
