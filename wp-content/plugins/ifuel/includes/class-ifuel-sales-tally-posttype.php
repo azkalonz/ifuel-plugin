@@ -230,8 +230,6 @@ class SalesTallyPostType
                 $_SESSION['sales_json'] = json_encode($array);
                 unset($_SESSION['sales_error']);
                 return;
-            } else {
-                $_SESSION['sales_error'] = 'Invalid file.';
             }
 
             if (isset($_POST['sales_file']) && isset($_SESSION['sales_json'])) {
