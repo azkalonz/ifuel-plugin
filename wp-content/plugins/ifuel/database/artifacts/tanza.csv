@@ -1,0 +1,3 @@
+﻿Prod. ID,Fuel Type,Pump,Pump Reading Beg,Total Sales Amt,Pump Reading End,Total Sales Volume,Cashier,Date,Shift Schedule,Reading in Liters,Variance in Liters
+1,Diesel,Pump 1,11430,"6,031.18",11583.03,152.94,CAMANSE,9/1/2021,1st,153,0
+2,Diesel,Pump 2,9305,850.21,9326.76,21.47,CAMANSE,9/1/2021,1st,21,0

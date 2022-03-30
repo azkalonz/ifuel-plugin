@@ -1,4 +1,5 @@
 <?php
+session_start();
 require_once PLUGIN_ROOT . '/includes/class-ifuel-investors-seeder.php';
 
 class SalesTallyPostType
@@ -68,6 +69,15 @@ class SalesTallyPostType
 .sales-tally .success {
     background: #c9ffc9;
     border: 1px solid green;
+    padding: 8px;
+    border-radius: 8px;
+    margin: 13px 0;
+    font-size: smaller;
+}
+
+.sales-tally .error {
+    background: lightpink;
+    border: 1px solid red;
     padding: 8px;
     border-radius: 8px;
     margin: 13px 0;
@@ -176,7 +186,6 @@ class SalesTallyPostType
             "post_status" => "publish",
             "post_content" => " ",
             'post_type' => SALES_TALLY_POST_TYPE,
-
         ], true);
         foreach ($data as $key => $value) {
             if ($key == 'ID') continue;
@@ -210,6 +219,76 @@ class SalesTallyPostType
     {
         register_post_type(SALES_TALLY_POST_TYPE, self::getArgs());
         add_role(sanitize_title(BRANCH_MANAGER_ROLE), BRANCH_MANAGER_ROLE);
+
+        if (isset($_FILES['sales_tally']['tmp_name'])) {
+            $_SESSION['sales_file'] = $_FILES['sales_tally']['tmp_name'];
+            $file = $_SESSION['sales_file'];
+            $csv = file_get_contents($file);
+            $array = array_map("str_getcsv", explode("\n", $csv));
+            $_SESSION['sales_json'] = json_encode($array);
+            return;
+        } else {
+            $_SESSION['sales_error'] = 'Invalid file.';
+        }
+
+        if (isset($_POST['sales_file']) && isset($_SESSION['sales_json'])) {
+            $sales = json_decode($_SESSION['sales_json']);
+            $keys = [];
+            $mapped_keys = [];
+            $user = wp_get_current_user();
+            $branch = get_user_meta($user->ID, 'branch_location');
+            $inserted = 0;
+
+            foreach (SalesTallyPostType::$form_fields1 as $key => $field) {
+                array_push($keys, $key);
+            }
+
+            foreach (SalesTallyPostType::$form_fields2 as $key => $field) {
+                array_push($keys, $key);
+            }
+
+            foreach ($sales[0] as $s => $v) {
+                $mapped_keys[$v] = $s;
+            }
+
+            foreach ($keys as $key => $value) {
+                $mapped_key = $mapped_keys[$_POST[sanitize_title($value)]];
+                $mapped_keys[sanitize_title($value)] = $mapped_key;
+            }
+
+            foreach ($sales as $k => $sale) {
+                if ($k == 0 || empty($sale[0])) continue;
+
+                $date = explode('/', $sale[$mapped_keys['date']]);
+                $date = $date[2] . '-' . $date[0] . '-' . $date[1];
+                $post = wp_insert_post([
+                    'post_title' => date('Y-m-d', strtotime($sale[$mapped_keys['date']])),
+                    "post_status" => "publish",
+                    "post_content" => " ",
+                    'post_type' => SALES_TALLY_POST_TYPE,
+                ]);
+
+                if ($post) {
+                    $inserted++;
+                }
+
+                foreach ($keys as $key => $value) {
+                    if ($value == 'Date') {
+                        $sale[$mapped_keys[sanitize_title($value)]] = date('Y-m-d', strtotime($sale[$mapped_keys[sanitize_title($value)]]));
+                    }
+                    add_post_meta($post, sanitize_title($value), $sale[$mapped_keys[sanitize_title($value)]]);
+                }
+                add_post_meta($post, 'branch', $branch[0]);
+            }
+
+            $_SESSION['message'] = 'Imported <b>' . $inserted . '</b> sales.';
+        } else {
+            unset($_SESSION['message']);
+        }
+
+        unset($_SESSION['sales_file']);
+        unset($_SESSION['sales_json']);
+        unset($_SESSION['sales_error']);
     }
 
     public static function hooks()
@@ -288,58 +367,164 @@ class SalesTallyPostType
     public static function shortcodes()
     {
         add_shortcode('sales_tally_list', 'sales_tally_list_func');
-        function sales_tally_list_func($atts)
-        {
-            ob_start();
-            if (isset($_POST['delete'])) {
-                $deleted = 0;
-                foreach ($_POST['delete'] as $key => $value) {
-                    if (wp_delete_post((int)$value, true)) {
-                        $deleted++;
+
+        if (isset($_GET['action']) && $_GET['action'] == 'cancel-import') {
+            unlink($_SESSION['sales_file']);
+            unset($_SESSION['sales_file']);
+        }
+
+        if (isset($_SESSION['sales_file'])) {
+            function sales_tally_list_func($atts)
+            {
+                $fd = fopen($_SESSION['sales_file'], "r");
+
+                $counter = 0;
+
+                while (!feof($fd)) {
+                    if ($counter === 1)
+                        break;
+
+                    $buffer = fgetcsv($fd, 5000);
+                    ++$counter;
+                }
+                fclose($fd);
+
+                $keys = [];
+
+                foreach (SalesTallyPostType::$form_fields1 as $key => $field) {
+                    array_push($keys, $key);
+                }
+
+                foreach (SalesTallyPostType::$form_fields2 as $key => $field) {
+                    array_push($keys, $key);
+                }
+
+                if (isset($buffer)) {
+
+            ?>
+<form method="POST">
+    <input type="hidden" name="sales_file" value="<?php echo $_SESSION['sales_file'] ?>" />
+    <table>
+        <thead>
+            <tr>
+                <th>Field</th>
+                <th>Mapping</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php foreach ($keys as $key => $value) :
+                                    ob_start();
+                                ?>
+            <select name="<?php echo sanitize_title($value) ?>">
+                <?php foreach ($buffer as $k => $v) : ?>
+                <option <?php echo levenshtein($v, $value) == 0 ? 'selected' : '' ?>><?php echo $v ?></option>
+                <?php endforeach; ?>
+            </select>
+            <?php
+                                    $select = ob_get_clean(); ?>
+
+            <tr>
+                <td><?php echo $value ?></td>
+                <td>
+                    <?php echo $select ?>
+                </td>
+            </tr>
+            <?php endforeach;
+                            }
+                            ?>
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="2" style="text-align: right">
+                    <a class="button"
+                        href="<?php echo add_query_arg('action', 'cancel-import', get_page_link(get_page_by_title('Sales Tally List'))) ?>">Cancel</a>
+                    <input class="button" type="submit" value="Proceed" />
+                </td>
+            </tr>
+        </tfoot>
+    </table>
+</form>
+<?php
+                $html = ob_get_clean();
+
+                return $html;
+            }
+        }
+
+        if (!function_exists('sales_tally_list_func')) {
+            function sales_tally_list_func($atts)
+            {
+                ob_start();
+
+                if (isset($_POST['delete'])) {
+                    $deleted = 0;
+                    foreach ($_POST['delete'] as $key => $value) {
+                        if (wp_delete_post((int)$value, true)) {
+                            $deleted++;
+                        }
                     }
                 }
-            }
-            SalesTallyPostType::getStyle();
-            $user = wp_get_current_user();
-            $branch = get_user_meta($user->ID, 'branch_location');
-            $from = $_GET['from'] ?? date('Y/m/01');
-            $to = $_GET['to'] ??  date('Y/m/d');
-            $the_query = new WP_Query(
-                array(
-                    'posts_per_page' => 10,
-                    'post_type' => SALES_TALLY_POST_TYPE,
-                    'paged' => get_query_var('paged') ? get_query_var('paged') : 1,
-                    'meta_query' => array(
-                        'relation' => 'AND',
-                        array(
-                            'key' => 'branch',
-                            'value' => $branch[0],
-                        ),
-                        array(
-                            'key' => 'date',
-                            'value' => array($from, $to),
-                            'compare' => 'BETWEEN',
-                            'type' => 'DATE'
-                        ),
+                SalesTallyPostType::getStyle();
+                $user = wp_get_current_user();
+                $branch = get_user_meta($user->ID, 'branch_location');
+                $from = $_GET['from'] ?? date('Y/m/01');
+                $to = $_GET['to'] ??  date('Y/m/d');
+                $the_query = new WP_Query(
+                    array(
+                        'posts_per_page' => 10,
+                        'post_type' => SALES_TALLY_POST_TYPE,
+                        'paged' => get_query_var('paged') ? get_query_var('paged') : 1,
+                        'meta_query' => array(
+                            'relation' => 'AND',
+                            array(
+                                'key' => 'branch',
+                                'value' => $branch[0],
+                            ),
+                            array(
+                                'key' => 'date',
+                                'value' => array($from, $to),
+                                'compare' => 'BETWEEN',
+                                'type' => 'DATE'
+                            ),
+                        )
                     )
-                )
-            );
-        ?>
+                );
+                ?>
 <script type="text/javascript" src="https://cdn.jsdelivr.net/jquery/latest/jquery.min.js"></script>
 <script type="text/javascript" src="https://cdn.jsdelivr.net/momentjs/latest/moment.min.js"></script>
 <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
 <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.css" />
 <div class="sales-tally">
     <h1 style="text-transform: capitalize;"><?php echo $branch[0] ?></h1>
-    <label for="datepicker">
-        Date Range
-    </label>
-    <input id="datepicker" />
+    <div style="display: flex; justify-content: space-between; align-items: center">
+        <div>
+            <label for="datepicker">
+                Date Range
+            </label>
+            <input id="datepicker" />
+        </div>
+        <form id="import-form" method="POST" enctype="multipart/form-data"
+            action="<?php echo add_query_arg('action', 'import', get_page_link(get_page_by_title('Sales Tally List'))) ?>">
+            <label class="button" for="import-sales">Import</label>
+            <input id="import-sales" class="button" accept=".csv" value="Import" type="file" style="display: none;"
+                name="sales_tally" onchange="document.querySelector('#import-form').submit()" />
+        </form>
+    </div>
     <form method="POST">
         <input type="submit" value="Delete" style="display: none;" />
         <?php if (isset($deleted)) : ?>
         <div class="success">
             <span>Deleted <b><?php echo $deleted ?></b> items successfully.</span>
+        </div>
+        <?php endif; ?>
+        <?php if (isset($_SESSION['sales_error'])) : ?>
+        <div class="error">
+            <span><?php echo $_SESSION['sales_error'] ?></span>
+        </div>
+        <?php endif; ?>
+        <?php if (isset($_SESSION['message'])) : ?>
+        <div class="success">
+            <span><?php echo $_SESSION['message'] ?></span>
         </div>
         <?php endif; ?>
         <table style="margin-top:0;">
@@ -357,8 +542,8 @@ class SalesTallyPostType
                 </tr>
                 <?php while ($the_query->have_posts()) : $the_query->the_post(); ?>
                 <?php
-                                $meta = get_post_meta(get_the_ID());
-                                ?>
+                                        $meta = get_post_meta(get_the_ID());
+                                        ?>
                 <tr>
                     <td>
                         <input type="checkbox" class="check-sale" name="delete[]" value="<?php echo the_ID() ?>" />
@@ -388,22 +573,22 @@ class SalesTallyPostType
                     </td>
                 </tr>
                 <?php
-                            endwhile; ?>
+                                    endwhile; ?>
             </tbody>
         </table>
     </form>
     <div>
         <?php
-                    $big = 999999999; // need an unlikely integer
-                    echo paginate_links(array(
-                        'base' => str_replace($big, '%#%', get_pagenum_link($big)),
-                        'format' => '?paged=%#%',
-                        'current' => max(1, get_query_var('paged')),
-                        'total' => $the_query->max_num_pages
-                    ));
+                            $big = 999999999; // need an unlikely integer
+                            echo paginate_links(array(
+                                'base' => str_replace($big, '%#%', get_pagenum_link($big)),
+                                'format' => '?paged=%#%',
+                                'current' => max(1, get_query_var('paged')),
+                                'total' => $the_query->max_num_pages
+                            ));
 
-                    wp_reset_postdata();
-                    ?>
+                            wp_reset_postdata();
+                            ?>
     </div>
 </div>
 <script>
@@ -414,9 +599,9 @@ $(function() {
         endDate: new Date(`<?php echo $to ?>`)
     }, function(start, end, label) {
         let newloc = `<?php echo add_query_arg(array(
-                                            'from' => '$FROM',
-                                            'to' => '$TO'
-                                        ), get_page_link(get_page_by_title('Sales Tally List'))) ?>`;
+                                                    'from' => '$FROM',
+                                                    'to' => '$TO'
+                                                ), get_page_link(get_page_by_title('Sales Tally List'))) ?>`;
         newloc = newloc.replace('$FROM', start.format('YYYY/MM/DD'));
         newloc = newloc.replace('$TO', end.format('YYYY/MM/DD'));
         window.location = newloc;
@@ -438,8 +623,9 @@ $(function() {
 });
 </script>
 <?php
-            $html = ob_get_clean();
-            return $html;
+                $html = ob_get_clean();
+                return $html;
+            }
         }
         add_shortcode('sales_tally', 'sales_tally_func');
         function sales_tally_func($atts)
@@ -468,7 +654,7 @@ $(function() {
             }
             $location = get_term_by('slug', $branch[0], INVESTOR_TAXONOMY);
             $title = 'iFUEL ' . $location->name;
-        ?>
+                ?>
 <?php SalesTallyPostType::getStyle() ?>
 <div class="sales-tally">
     <h1><?php echo $title ?></h1>
