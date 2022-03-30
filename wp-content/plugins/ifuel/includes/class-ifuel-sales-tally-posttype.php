@@ -503,12 +503,25 @@ class SalesTallyPostType
             </label>
             <input id="datepicker" />
         </div>
+        <?php
+                            $q = get_posts([
+                                'post_type' => SALES_TALLY_POST_TYPE,
+                                'meta_key' => 'branch',
+                                'meta_query' => array(
+                                    'key' => 'branch',
+                                    'value' => $branch[0],
+                                    'compare' => '='
+                                )
+                            ]);
+                            if (sizeof($q) <= 0) :
+                            ?>
         <form id="import-form" method="POST" enctype="multipart/form-data"
             action="<?php echo add_query_arg('action', 'import', get_page_link(get_page_by_title('Sales Tally List'))) ?>">
             <label class="button" for="import-sales">Import</label>
             <input id="import-sales" class="button" accept=".csv" value="Import" type="file" style="display: none;"
                 name="sales_tally" onchange="document.querySelector('#import-form').submit()" />
         </form>
+        <?php endif; ?>
     </div>
     <form method="POST">
         <input type="submit" value="Delete" style="display: none;" />
