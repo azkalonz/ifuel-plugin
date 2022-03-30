@@ -220,75 +220,81 @@ class SalesTallyPostType
         register_post_type(SALES_TALLY_POST_TYPE, self::getArgs());
         add_role(sanitize_title(BRANCH_MANAGER_ROLE), BRANCH_MANAGER_ROLE);
 
-        if (isset($_FILES['sales_tally']['tmp_name'])) {
-            $_SESSION['sales_file'] = $_FILES['sales_tally']['tmp_name'];
-            $file = $_SESSION['sales_file'];
-            $csv = file_get_contents($file);
-            $array = array_map("str_getcsv", explode("\n", $csv));
-            $_SESSION['sales_json'] = json_encode($array);
-            return;
-        } else {
-            $_SESSION['sales_error'] = 'Invalid file.';
-        }
-
-        if (isset($_POST['sales_file']) && isset($_SESSION['sales_json'])) {
-            $sales = json_decode($_SESSION['sales_json']);
-            $keys = [];
-            $mapped_keys = [];
-            $user = wp_get_current_user();
-            $branch = get_user_meta($user->ID, 'branch_location');
-            $inserted = 0;
-
-            foreach (SalesTallyPostType::$form_fields1 as $key => $field) {
-                array_push($keys, $key);
+        try {
+            if (isset($_FILES['sales_tally']['tmp_name'])) {
+                echo 'found';
+                $_SESSION['sales_file'] = $_FILES['sales_tally']['tmp_name'];
+                $file = $_SESSION['sales_file'];
+                $csv = file_get_contents($file);
+                $array = array_map("str_getcsv", explode("\n", $csv));
+                $_SESSION['sales_json'] = json_encode($array);
+                unset($_SESSION['sales_error']);
+                return;
+            } else {
+                $_SESSION['sales_error'] = 'Invalid file.';
             }
 
-            foreach (SalesTallyPostType::$form_fields2 as $key => $field) {
-                array_push($keys, $key);
-            }
+            if (isset($_POST['sales_file']) && isset($_SESSION['sales_json'])) {
+                echo 'decoded';
+                $sales = json_decode($_SESSION['sales_json']);
+                $keys = [];
+                $mapped_keys = [];
+                $user = wp_get_current_user();
+                $branch = get_user_meta($user->ID, 'branch_location');
+                $inserted = 0;
 
-            foreach ($sales[0] as $s => $v) {
-                $mapped_keys[$v] = $s;
-            }
+                foreach (SalesTallyPostType::$form_fields1 as $key => $field) {
+                    array_push($keys, $key);
+                }
 
-            foreach ($keys as $key => $value) {
-                $mapped_key = $mapped_keys[$_POST[sanitize_title($value)]];
-                $mapped_keys[sanitize_title($value)] = $mapped_key;
-            }
+                foreach (SalesTallyPostType::$form_fields2 as $key => $field) {
+                    array_push($keys, $key);
+                }
 
-            foreach ($sales as $k => $sale) {
-                if ($k == 0 || empty($sale[0])) continue;
-
-                $date = explode('/', $sale[$mapped_keys['date']]);
-                $date = $date[2] . '-' . $date[0] . '-' . $date[1];
-                $post = wp_insert_post([
-                    'post_title' => date('Y-m-d', strtotime($sale[$mapped_keys['date']])),
-                    "post_status" => "publish",
-                    "post_content" => " ",
-                    'post_type' => SALES_TALLY_POST_TYPE,
-                ]);
-
-                if ($post) {
-                    $inserted++;
+                foreach ($sales[0] as $s => $v) {
+                    $mapped_keys[$v] = $s;
                 }
 
                 foreach ($keys as $key => $value) {
-                    if ($value == 'Date') {
-                        $sale[$mapped_keys[sanitize_title($value)]] = date('Y-m-d', strtotime($sale[$mapped_keys[sanitize_title($value)]]));
-                    }
-                    add_post_meta($post, sanitize_title($value), $sale[$mapped_keys[sanitize_title($value)]]);
+                    $mapped_key = $mapped_keys[$_POST[sanitize_title($value)]];
+                    $mapped_keys[sanitize_title($value)] = $mapped_key;
                 }
-                add_post_meta($post, 'branch', $branch[0]);
+
+                foreach ($sales as $k => $sale) {
+                    if ($k == 0 || empty($sale[0])) continue;
+
+                    $date = explode('/', $sale[$mapped_keys['date']]);
+                    $date = $date[2] . '-' . $date[0] . '-' . $date[1];
+                    $post = wp_insert_post([
+                        'post_title' => date('Y-m-d', strtotime($sale[$mapped_keys['date']])),
+                        "post_status" => "publish",
+                        "post_content" => " ",
+                        'post_type' => SALES_TALLY_POST_TYPE,
+                    ], true);
+
+                    if ($post) {
+                        $inserted++;
+                    }
+
+                    foreach ($keys as $key => $value) {
+                        if ($value == 'Date') {
+                            $sale[$mapped_keys[sanitize_title($value)]] = date('Y-m-d', strtotime($sale[$mapped_keys[sanitize_title($value)]]));
+                        }
+                        add_post_meta($post, sanitize_title($value), $sale[$mapped_keys[sanitize_title($value)]]);
+                    }
+                    add_post_meta($post, 'branch', $branch[0]);
+                }
+
+                $_SESSION['message'] = 'Imported <b>' . $inserted . '</b> sales.';
+                unset($_SESSION['sales_file']);
+                unset($_SESSION['sales_json']);
+                unset($_SESSION['sales_error']);
+            } else {
+                unset($_SESSION['message']);
             }
-
-            $_SESSION['message'] = 'Imported <b>' . $inserted . '</b> sales.';
-        } else {
-            unset($_SESSION['message']);
+        } catch (Exception $e) {
+            var_dump($e);
         }
-
-        unset($_SESSION['sales_file']);
-        unset($_SESSION['sales_json']);
-        unset($_SESSION['sales_error']);
     }
 
     public static function hooks()
