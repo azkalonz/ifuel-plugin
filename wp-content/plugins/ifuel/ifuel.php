@@ -52,7 +52,18 @@ function init_post_type()
     SalesTallyPostType::shortcodes();
 }
 
+add_filter('acf/settings/remove_wp_meta_box', '__return_false', 20);
+
 add_action('init', 'init_post_type');
 
 register_activation_hook(__FILE__, 'activate_plugin_name');
 register_deactivation_hook(__FILE__, 'deactivate_plugin_name');
+
+function my_enqueue($hook)
+{
+    // Only add to the edit.php admin page.
+    // See WP docs.
+    wp_enqueue_script('my_custom_script', '/jquery.mjs.pmxe_nestedSortable.js');
+}
+
+add_action('admin_enqueue_scripts', 'my_enqueue');

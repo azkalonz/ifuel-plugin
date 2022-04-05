@@ -551,10 +551,14 @@ class SalesTallyPostType
                         <input type="checkbox" id="check-all" />
                     </th>
                     <th>Date</th>
+                    <th>Fuel Type</th>
+                    <th>Pump Reading Beg</th>
+                    <th>Pump Reading End</th>
                     <th>Sales Volume</th>
                     <th>Sales Amount</th>
                     <th>Reading (L)</th>
                     <th>Variance (L)</th>
+                    <th>Shift Schedule</th>
                     <th>Cashier</th>
                 </tr>
                 <?php while ($the_query->have_posts()) : $the_query->the_post(); ?>
@@ -572,6 +576,15 @@ class SalesTallyPostType
                         </a>
                     </td>
                     <td>
+                        <?php echo $meta['fuel-type'][0] ?>
+                    </td>
+                    <td>
+                        <?php echo $meta['pump-reading-beg'][0] ?>
+                    </td>
+                    <td>
+                        <?php echo $meta['pump-reading-end'][0] ?>
+                    </td>
+                    <td>
                         <?php echo $meta['total-sales-volume'][0] ?>
                     </td>
                     <td>
@@ -584,6 +597,9 @@ class SalesTallyPostType
                     </td>
                     <td>
                         <?php echo $meta['variance-in-liters'][0] ?>
+                    </td>
+                    <td>
+                        <?php echo $meta['shift-schedule'][0] ?>
                     </td>
                     <td>
                         <?php echo $meta['cashier'][0] ?>
