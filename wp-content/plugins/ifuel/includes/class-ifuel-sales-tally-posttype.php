@@ -180,20 +180,7 @@ class SalesTallyPostType
         }
         $user = wp_get_current_user();
         $branch = get_user_meta($user->ID, 'branch_location');
-        $post = wp_insert_post([
-            'ID' => (int)(isset($data['ID']) ? $data['ID'] : 0),
-            'post_title' => date('Y-m-d'),
-            "post_status" => "publish",
-            "post_content" => " ",
-            'post_type' => SALES_TALLY_POST_TYPE,
-        ], true);
-        foreach ($data as $key => $value) {
-            if ($key == 'ID') continue;
-            delete_post_meta($post, $key);
-            add_post_meta($post, $key, $value);
-        }
-        add_post_meta($post, 'branch', $branch[0]);
-        $data['ID'] = $post;
+        $not_enough_volume = false;
 
         $inventory = get_posts([
             's' => $data['fuel-type'],
@@ -209,8 +196,34 @@ class SalesTallyPostType
         foreach ($inventory as $key => $product) {
             $volume = get_post_meta($product->ID, 'volume');
             $volume = (float)$volume[0] ?? 0;
-            update_post_meta($product->ID, 'volume', $volume - (float)$data['total-sales-volume']);
+            $newvolume = $volume - (float)$data['total-sales-volume'];
+            if ($newvolume < 0) {
+                $not_enough_volume = true;
+                continue;
+            }
+            update_post_meta($product->ID, 'volume', $newvolume);
         }
+
+        if ($not_enough_volume) {
+            return [
+                "error" => "Not enough volume on {$data['fuel-type']}."
+            ];
+        }
+
+        $post = wp_insert_post([
+            'ID' => (int)(isset($data['ID']) ? $data['ID'] : 0),
+            'post_title' => date('Y-m-d'),
+            "post_status" => "publish",
+            "post_content" => " ",
+            'post_type' => SALES_TALLY_POST_TYPE,
+        ], true);
+        foreach ($data as $key => $value) {
+            if ($key == 'ID') continue;
+            delete_post_meta($post, $key);
+            add_post_meta($post, $key, $value);
+        }
+        add_post_meta($post, 'branch', $branch[0]);
+        $data['ID'] = $post;
 
         return $data;
     }
@@ -463,6 +476,28 @@ class SalesTallyPostType
                 if (isset($_POST['delete'])) {
                     $deleted = 0;
                     foreach ($_POST['delete'] as $key => $value) {
+                        $post = get_post($value);
+                        $fueltype = get_post_meta($post->ID, 'fuel-type', true);
+                        $salesvolume = get_post_meta($post->ID, 'total-sales-volume', true);
+                        $user = wp_get_current_user();
+                        $branch = get_user_meta($user->ID, 'branch_location');
+
+                        $inventory = get_posts([
+                            's' => $fueltype,
+                            'post_type' => INVENTORY_POST_TYPE,
+                            'meta_key' => 'branch',
+                            'meta_query' => array(
+                                'key' => 'branch',
+                                'value' => $branch[0],
+                                'compare' => '='
+                            )
+                        ]);
+
+                        foreach ($inventory as $key => $product) {
+                            $volume = get_post_meta($product->ID, 'volume');
+                            $volume = (float)$volume[0] ?? 0;
+                            update_post_meta($product->ID, 'volume', $volume + (float)$salesvolume);
+                        }
                         if (wp_delete_post((int)$value, true)) {
                             $deleted++;
                         }
@@ -691,6 +726,11 @@ $(function() {
 <?php SalesTallyPostType::getStyle() ?>
 <div class="sales-tally">
     <h1><?php echo $title ?></h1>
+    <?php if (isset($values['error'])) : ?>
+    <div class="error">
+        <span><?php echo $values['error'] ?></span>
+    </div>
+    <?php endif; ?>
     <form method="POST" id="sales-tally">
         <div class="container">
             <div>
