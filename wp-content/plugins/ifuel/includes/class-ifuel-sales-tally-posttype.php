@@ -691,37 +691,44 @@ $(function() {
 });
 </script>
 <?php
-                $html = ob_get_clean();
-                return $html;
-            }
-        }
-        add_shortcode('sales_tally', 'sales_tally_func');
-        function sales_tally_func($atts)
-        {
-            ob_start();
-            $user = wp_get_current_user();
-            $branch = get_user_meta($user->ID, 'branch_location');
-            if (!in_array(sanitize_title(BRANCH_MANAGER_ROLE), $user->roles)) {
-                return;
-            }
-            if (isset($_POST['add_tally'])) {
-                $values = SalesTallyPostType::add_tally($_POST);
-            }
-            if (isset($_GET['ID'])) {
-                $data = [];
-                $post = get_post($_GET['ID']);
-                $data['ID'] = $post->ID;
-                $data['post_title'] = $post->post_title;
-                $data['post_status'] = $post->post_status;
-                $data['post_content'] = $post->post_content;
-                $data['post_type'] = $post->post_type;
-                foreach (get_post_meta($post->ID) as $key => $value) {
-                    $data[$key] = $value[0];
+                    $html = ob_get_clean();
+                    return $html;
                 }
-                $values = $data;
             }
-            $location = get_term_by('slug', $branch[0], INVESTOR_TAXONOMY);
-            $title = 'iFUEL ' . $location->name;
+            add_shortcode('sales_tally', 'sales_tally_func');
+            function sales_tally_func($atts)
+            {
+                ob_start();
+                $user = wp_get_current_user();
+                $branch = get_user_meta($user->ID, 'branch_location');
+                if (!in_array(sanitize_title(BRANCH_MANAGER_ROLE), $user->roles)) {
+                    return;
+                }
+                if (isset($_POST['add_tally'])) {
+                    $values = SalesTallyPostType::add_tally($_POST);
+                    if (isset($values['ID']) && !isset($values['error'])) {
+                    ?>
+<script>
+window.location = `<?php echo add_query_arg('ID', $values['ID'], get_page_link(get_page_by_title('Sales Tally'))) ?>`;
+</script>
+<?php
+                    }
+                }
+                if (isset($_GET['ID'])) {
+                    $data = [];
+                    $post = get_post($_GET['ID']);
+                    $data['ID'] = $post->ID;
+                    $data['post_title'] = $post->post_title;
+                    $data['post_status'] = $post->post_status;
+                    $data['post_content'] = $post->post_content;
+                    $data['post_type'] = $post->post_type;
+                    foreach (get_post_meta($post->ID) as $key => $value) {
+                        $data[$key] = $value[0];
+                    }
+                    $values = $data;
+                }
+                $location = get_term_by('slug', $branch[0], INVESTOR_TAXONOMY);
+                $title = 'iFUEL ' . $location->name;
                 ?>
 <?php SalesTallyPostType::getStyle() ?>
 <div class="sales-tally">
@@ -778,8 +785,8 @@ function submitTally() {
 })();
 </script>
 <?php
-            $html = ob_get_clean();
-            return $html;
+                $html = ob_get_clean();
+                return $html;
+            }
         }
     }
-}
