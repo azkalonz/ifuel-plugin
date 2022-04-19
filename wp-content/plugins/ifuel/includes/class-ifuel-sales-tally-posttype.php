@@ -182,6 +182,31 @@ class SalesTallyPostType
         $branch = get_user_meta($user->ID, 'branch_location');
         $not_enough_volume = false;
 
+        $duplicate_entry = new WP_Query(
+            array(
+                'post_type' => SALES_TALLY_POST_TYPE,
+                'meta_query' => array(
+                    'relation' => 'AND',
+                    'branch' => $branch[0],
+                    'cashier' => $data['cashier'],
+                    'date' => $data['date'],
+                    'fuel-type' => $data['fuel-type'],
+                    'pump' => $data['pump'],
+                    'pump-reading-beg' => $data['pump-reading-beg'],
+                    'pump-reading-end' => $data['pump-reading-end'],
+                    'reading-in-liters' => $data['reading-in-liters'],
+                    'shift-schedule' => $data['shift-schedule'],
+                    'total-sales-amt' => $data['total-sales-amt'],
+                    'total-sales-volume' => $data['total-sales-volume'],
+                    'variance-in-liters' => $data['variance-in-liters']
+                )
+            )
+        );
+        if (!isset($_GET['ID']) && $duplicate_entry->found_posts && $duplicate_entry->post_count > 1) {
+            $data['ID'] = $duplicate_entry->posts[0]->ID;
+            return $data;
+        }
+
         $inventory = get_posts([
             's' => $data['fuel-type'],
             'post_type' => INVENTORY_POST_TYPE,
