@@ -143,7 +143,9 @@ function reOrder(id) {
         if (isset($_GET['volume']) && isset($_GET['branch']) && isset($_GET['product'])) {
 
             if (!empty($_GET['volume']) && is_numeric($_GET['volume'])) {
-                update_post_meta($_GET['product'], 'volume', $_GET['volume']);
+                $new_vol = (float)(get_post_meta($_GET['product'], 'volume') ?? [0])[0];
+                $new_vol += (float)$_GET['volume'];
+                update_post_meta($_GET['product'], 'volume', $new_vol);
             ?>
 <script>
 window.location = `<?php echo get_page_link(get_page_by_title('iFuel Inventory')) ?>`;
